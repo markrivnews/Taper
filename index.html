@@ -329,7 +329,10 @@
     position: relative;
     font-size: 10px;
     color: var(--dim);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
   }
+  .day:active { transform: scale(0.94); background: var(--paper-3); }
   .day.has-data { color: var(--ink); }
   .day .d-num { font-family: var(--serif); font-size: 16px; }
   .day .d-date { font-size: 8px; opacity: 0.6; position: absolute; top: 3px; left: 4px; }
@@ -406,6 +409,75 @@
     font-style: italic;
     font-family: var(--serif);
   }
+
+  .day-edit-counter {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 12px;
+    align-items: center;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+  .day-edit-btn {
+    background: var(--paper-3);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 300;
+    padding: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .day-edit-btn:active { transform: scale(0.95); background: var(--paper-2); }
+  .day-edit-count {
+    font-family: var(--serif);
+    font-size: 48px;
+    font-weight: 300;
+    text-align: center;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .day-edit-count-sub {
+    font-size: 10px;
+    color: var(--dim);
+    text-align: center;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .day-edit-direct {
+    margin-top: 12px;
+  }
+  .day-edit-status {
+    text-align: center;
+    margin: 8px 0 4px;
+  }
+  .day-edit-times {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line);
+  }
+  .day-edit-times-empty {
+    font-size: 11px;
+    color: var(--dim);
+    font-style: italic;
+    font-family: var(--serif);
+    text-align: center;
+    padding: 12px 0;
+  }
+  .btn-danger {
+    color: var(--bad);
+    border-color: var(--bad);
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .btn-danger:active { background: rgba(184,92,74,0.1); }
 
   .save-indicator {
     position: fixed;
@@ -659,6 +731,54 @@
       <button onclick="closeSettings()">cancel</button>
       <button class="btn-save" onclick="saveSettings()">save</button>
     </div>
+  </div>
+</div>
+
+<!-- Day-edit modal -->
+<div class="modal-backdrop" id="dayEditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="dayEditTitle">Edit day</div>
+      <button class="modal-close" onclick="closeDayEdit()">×</button>
+    </div>
+
+    <div class="day-edit-counter">
+      <button class="day-edit-btn" onclick="adjustEditedDay(-1)">−</button>
+      <div>
+        <div class="day-edit-count" id="dayEditCount">0</div>
+        <div class="day-edit-count-sub" id="dayEditSub">pouches</div>
+      </div>
+      <button class="day-edit-btn" onclick="adjustEditedDay(1)">+</button>
+    </div>
+
+    <div class="day-edit-status">
+      <span class="status-badge" id="dayEditStatus">—</span>
+    </div>
+
+    <div class="day-edit-direct">
+      <label class="field-label">Or type exact count</label>
+      <input type="number" id="dayEditDirect" min="0" max="50" inputmode="numeric">
+    </div>
+
+    <div class="field" style="margin-top: 16px;">
+      <div class="disruption" id="dayEditDisruptionToggle" onclick="toggleEditedDisruption()">
+        <label>Disruption day</label>
+        <div class="toggle"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Notes</label>
+      <textarea id="dayEditNotes" placeholder="trigger, context, what happened..."></textarea>
+    </div>
+
+    <div class="day-edit-times" id="dayEditTimesSection"></div>
+
+    <div class="modal-actions">
+      <button onclick="closeDayEdit()">cancel</button>
+      <button class="btn-save" onclick="saveDayEdit()">save changes</button>
+    </div>
+    <button class="day-edit-btn btn-danger" onclick="clearEditedDay()" style="width: 100%; margin-top: 8px;">clear this day</button>
   </div>
 </div>
 
@@ -965,6 +1085,142 @@
     return { cls: 'over-ceiling' };
   }
 
+  // ---- Day edit modal ----
+  let editingDayKey = null;
+  let editingDayDraft = null;
+
+  function openDayEdit(key) {
+    editingDayKey = key;
+    const existing = data.days[key];
+    // Working draft — don't mutate real data until save
+    editingDayDraft = existing
+      ? JSON.parse(JSON.stringify(existing))
+      : { count: 0, times: [], disruption: false, notes: '' };
+
+    const [y, m, d] = key.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const isToday = key === todayKey();
+    const dateLabel = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    document.getElementById('dayEditTitle').textContent = isToday ? `Today · ${dateLabel}` : dateLabel;
+
+    renderDayEdit();
+    document.getElementById('dayEditModal').classList.add('open');
+  }
+
+  function closeDayEdit() {
+    document.getElementById('dayEditModal').classList.remove('open');
+    editingDayKey = null;
+    editingDayDraft = null;
+  }
+
+  function renderDayEdit() {
+    if (!editingDayDraft) return;
+    const d = editingDayDraft;
+    const cfg = data.config;
+
+    document.getElementById('dayEditCount').textContent = d.count;
+    document.getElementById('dayEditSub').textContent = `${d.count * cfg.mg_per_pouch}mg total`;
+    document.getElementById('dayEditDirect').value = d.count;
+    document.getElementById('dayEditNotes').value = d.notes || '';
+
+    const toggle = document.getElementById('dayEditDisruptionToggle');
+    if (d.disruption) toggle.classList.add('active');
+    else toggle.classList.remove('active');
+
+    // Status badge
+    let cls = 'status-dim', txt = 'untracked';
+    if (d.count > 0) {
+      if (d.count > cfg.ceiling_max) { cls = 'status-bad'; txt = 'ceiling breach'; }
+      else if (d.count > cfg.ceiling_normal) { cls = 'status-warn'; txt = d.disruption ? 'budgeted' : 'over band'; }
+      else { cls = 'status-good'; txt = 'in band'; }
+    }
+    const statusEl = document.getElementById('dayEditStatus');
+    statusEl.className = `status-badge ${cls}`;
+    statusEl.textContent = txt;
+
+    // Times section
+    const timesSection = document.getElementById('dayEditTimesSection');
+    if (d.times && d.times.length) {
+      const sorted = [...d.times].sort();
+      const parts = [];
+      for (let i = 0; i < sorted.length; i++) {
+        const isRecent = i === sorted.length - 1;
+        parts.push(`<span class="chip ${isRecent ? 'recent' : ''}">${timeLabel(sorted[i])}</span>`);
+        if (i < sorted.length - 1) {
+          const gap = gapMinutes(sorted[i], sorted[i+1]);
+          const gapCls = gap < 60 ? 'gap-warn' : '';
+          parts.push(`<span class="chip-gap ${gapCls}">${gapLabel(gap)}</span>`);
+        }
+      }
+      timesSection.innerHTML = `
+        <div class="times-label">timestamps logged</div>
+        <div class="time-chips">${parts.join('')}</div>
+        <div class="field-hint" style="margin-top: 8px;">+/− buttons adjust the count without changing timestamps. Use "type exact" to override.</div>
+      `;
+    } else {
+      timesSection.innerHTML = `<div class="day-edit-times-empty">No timestamps — count entered manually.</div>`;
+    }
+  }
+
+  function adjustEditedDay(delta) {
+    if (!editingDayDraft) return;
+    const newCount = Math.max(0, editingDayDraft.count + delta);
+    if (delta > 0) {
+      // Adding via +: append a timestamp for the day at noon (or now if today)
+      const isToday = editingDayKey === todayKey();
+      const stamp = isToday ? new Date().toISOString() : `${editingDayKey}T12:00:00`;
+      editingDayDraft.times.push(stamp);
+    } else if (delta < 0 && editingDayDraft.times.length) {
+      editingDayDraft.times.pop();
+    }
+    editingDayDraft.count = newCount;
+    renderDayEdit();
+  }
+
+  function toggleEditedDisruption() {
+    if (!editingDayDraft) return;
+    editingDayDraft.disruption = !editingDayDraft.disruption;
+    renderDayEdit();
+  }
+
+  function clearEditedDay() {
+    if (!confirm('Clear all data for this day?')) return;
+    editingDayDraft = { count: 0, times: [], disruption: false, notes: '' };
+    renderDayEdit();
+  }
+
+  function saveDayEdit() {
+    if (!editingDayKey || !editingDayDraft) return;
+
+    // If user typed an exact value, prefer that
+    const directVal = parseInt(document.getElementById('dayEditDirect').value);
+    if (!isNaN(directVal) && directVal !== editingDayDraft.count) {
+      const targetCount = Math.max(0, directVal);
+      // Truncate or pad timestamps to match
+      while (editingDayDraft.times.length > targetCount) editingDayDraft.times.pop();
+      while (editingDayDraft.times.length < targetCount) {
+        const isToday = editingDayKey === todayKey();
+        const stamp = isToday ? new Date().toISOString() : `${editingDayKey}T12:00:00`;
+        editingDayDraft.times.push(stamp);
+      }
+      editingDayDraft.count = targetCount;
+    }
+
+    editingDayDraft.notes = document.getElementById('dayEditNotes').value;
+
+    // If count is 0 and nothing else meaningful, clear the entry
+    if (editingDayDraft.count === 0 && !editingDayDraft.notes && !editingDayDraft.disruption) {
+      delete data.days[editingDayKey];
+    } else {
+      data.days[editingDayKey] = editingDayDraft;
+    }
+
+    saveData();
+    closeDayEdit();
+    render();
+  }
+
+  // ---- Main render ----
   function render(bump) {
     const day = ensureToday();
     const cfg = data.config;
@@ -1024,10 +1280,10 @@
         const dd = data.days[k];
         const isToday = k === todayKey();
         if (!dd || dd.count === 0) {
-          return `<div class="day ${isToday ? 'today-cell' : ''}"><span class="d-date">${k.slice(8)}</span><span class="d-num">·</span></div>`;
+          return `<div class="day ${isToday ? 'today-cell' : ''}" onclick="openDayEdit('${k}')"><span class="d-date">${k.slice(8)}</span><span class="d-num">·</span></div>`;
         }
         const s = statusForDay(dd);
-        return `<div class="day has-data ${s.cls} ${dd.disruption ? 'disruption' : ''} ${isToday ? 'today-cell' : ''}">
+        return `<div class="day has-data ${s.cls} ${dd.disruption ? 'disruption' : ''} ${isToday ? 'today-cell' : ''}" onclick="openDayEdit('${k}')">
           <span class="d-date">${k.slice(8)}</span>
           <span class="d-num">${dd.count}</span>
         </div>`;
