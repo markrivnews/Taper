@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Taper">
+<meta name="theme-color" content="#0e0d0c">
+<title>Taper</title>
+
+<!-- Inline SVG icon as data URI for home screen -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%230e0d0c'/><text x='90' y='118' font-family='Georgia,serif' font-size='100' font-style='italic' font-weight='300' fill='%23d4a574' text-anchor='middle'>T.</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #f4f1ea;
+    --paper: #0e0d0c;
+    --paper-2: #181614;
+    --paper-3: #221f1c;
+    --line: #2e2a26;
+    --dim: #7a7268;
+    --accent: #d4a574;
+    --good: #6b8e5a;
+    --warn: #c9985a;
+    --bad: #b85c4a;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --serif: 'Fraunces', Georgia, serif;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: contain;
+  }
+  body {
+    background-image:
+      radial-gradient(ellipse at top left, rgba(212,165,116,0.04), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(107,142,90,0.03), transparent 50%);
+    padding: calc(var(--safe-top) + 20px) 16px calc(var(--safe-bot) + 80px);
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .header {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .header h1 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    font-style: italic;
+  }
+  .header .meta {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  .today {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .today::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    height: 2px;
+    width: var(--progress, 0%);
+    background: var(--status-color, var(--accent));
+    transition: width 0.4s ease, background 0.3s ease;
+  }
+  .today-label {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+  }
+  .today-date {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .count-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 12px 0 16px;
+  }
+  .count-num {
+    font-family: var(--serif);
+    font-size: 64px;
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .count-ceiling {
+    font-size: 11px;
+    color: var(--dim);
+    text-align: right;
+  }
+  .count-ceiling .num {
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--ink);
+    display: block;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    border: 1px solid currentColor;
+  }
+  .status-good { color: var(--good); }
+  .status-warn { color: var(--warn); }
+  .status-bad { color: var(--bad); }
+  .status-dim { color: var(--dim); }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  button {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: 0.05em;
+    touch-action: manipulation;
+  }
+  button:active { transform: scale(0.97); background: var(--paper-3); }
+  .btn-add {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+  .btn-add:active { background: #c2935f; }
+  .btn-sub { color: var(--dim); }
+
+  .disruption {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--paper-3);
+    border-radius: 3px;
+    border: 1px solid transparent;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+  .disruption.active { border-color: var(--warn); }
+  .disruption label {
+    font-size: 11px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    flex: 1;
+    cursor: pointer;
+  }
+  .disruption.active label { color: var(--warn); }
+  .toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--line);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: var(--ink);
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.2s;
+  }
+  .disruption.active .toggle { background: var(--warn); }
+  .disruption.active .toggle::after { left: 19px; background: var(--paper); }
+
+  .times {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .times-label {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .time-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .chip {
+    font-size: 11px;
+    padding: 4px 8px;
+    background: var(--paper-3);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    color: var(--dim);
+  }
+  .chip.recent { color: var(--accent); border-color: var(--accent); }
+  .chip-gap {
+    font-size: 9px;
+    color: var(--dim);
+    opacity: 0.6;
+  }
+  .gap-warn { color: var(--warn) !important; opacity: 1 !important; }
+
+  .band {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  .band-title {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 10px;
+  }
+  .band-range {
+    font-family: var(--serif);
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  .band-sub {
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .stat {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+  }
+  .stat-label {
+    font-size: 9px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 2px;
+  }
+
+  .history { margin-top: 24px; }
+  .history-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    margin-bottom: 12px;
+    color: var(--dim);
+  }
+  .week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .day {
+    aspect-ratio: 1;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    font-size: 10px;
+    color: var(--dim);
+  }
+  .day.has-data { color: var(--ink); }
+  .day .d-num { font-family: var(--serif); font-size: 16px; }
+  .day .d-date { font-size: 8px; opacity: 0.6; position: absolute; top: 3px; left: 4px; }
+  .day.in-band { border-color: var(--good); }
+  .day.over-band { border-color: var(--warn); }
+  .day.over-ceiling { border-color: var(--bad); }
+  .day.disruption::after {
+    content: '';
+    position: absolute;
+    width: 4px; height: 4px;
+    background: var(--warn);
+    border-radius: 50%;
+    bottom: 3px; right: 3px;
+  }
+  .day.today-cell { background: var(--paper-3); }
+  .day.today-cell::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .notes-section {
+    margin-top: 16px;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 20px;
+  }
+  .notes-label {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 3px;
+    resize: vertical;
+    min-height: 60px;
+    -webkit-appearance: none;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+
+  .data-tools {
+    margin-top: 24px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .data-tools button {
+    flex: 1;
+    font-size: 11px;
+    padding: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .footer-note {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--dim);
+    font-style: italic;
+    font-family: var(--serif);
+  }
+
+  .save-indicator {
+    position: fixed;
+    top: calc(var(--safe-top) + 8px);
+    right: 16px;
+    font-size: 9px;
+    color: var(--good);
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    pointer-events: none;
+  }
+  .save-indicator.show { opacity: 1; }
+
+  /* Settings */
+  .settings-btn {
+    background: none;
+    border: none;
+    color: var(--dim);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+  }
+  .settings-btn:hover, .settings-btn:active { color: var(--accent); background: none; }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 100;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: calc(var(--safe-top) + 40px) 16px calc(var(--safe-bot) + 40px);
+    overflow-y: auto;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    font-weight: 300;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--dim);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .field {
+    margin-bottom: 16px;
+  }
+  .field-label {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .field-hint {
+    font-size: 10px;
+    color: var(--dim);
+    margin-top: 4px;
+    font-style: italic;
+    font-family: var(--serif);
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  input[type="number"], input[type="text"] {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 18px;
+    padding: 10px 12px;
+    border-radius: 3px;
+    -webkit-appearance: none;
+  }
+  input[type="text"] {
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+
+  .preset-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .preset {
+    font-size: 10px;
+    padding: 6px 10px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--dim);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .preset:active { border-color: var(--accent); color: var(--accent); }
+
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .btn-save {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+
+  .history-section-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--dim);
+    margin: 20px 0 8px;
+  }
+  .band-history-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 12px;
+  }
+  .band-history-item:last-child { border-bottom: none; }
+  .band-history-band { color: var(--ink); font-family: var(--serif); font-size: 14px; }
+  .band-history-date { color: var(--dim); font-size: 10px; }
+
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  .count-num.bump { animation: pop 0.3s ease; }
+</style>
+</head>
+<body>
+
+<div class="save-indicator" id="saveIndicator">saved</div>
+
+<div class="header">
+  <h1>Taper.</h1>
+  <button class="settings-btn" onclick="openSettings()">adjust ⚙</button>
+</div>
+
+<div id="app"></div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Adjust the band</div>
+      <button class="modal-close" onclick="closeSettings()">×</button>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Band label (display only)</label>
+      <input type="text" id="cfg-label" placeholder="e.g. 8–11">
+      <div class="field-hint">How the band shows on the main screen.</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Band range</label>
+      <div class="field-row">
+        <div>
+          <input type="number" id="cfg-floor" min="0" max="30" inputmode="numeric">
+          <div class="field-hint">floor (lower target)</div>
+        </div>
+        <div>
+          <input type="number" id="cfg-ceiling-normal" min="0" max="30" inputmode="numeric">
+          <div class="field-hint">top of band</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Ceilings</label>
+      <div class="field-row">
+        <div>
+          <input type="number" id="cfg-ceiling-max" min="0" max="30" inputmode="numeric">
+          <div class="field-hint">hard ceiling (normal day)</div>
+        </div>
+        <div>
+          <input type="number" id="cfg-ceiling-disruption" min="0" max="30" inputmode="numeric">
+          <div class="field-hint">disruption day ceiling</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Week target</label>
+      <input type="text" id="cfg-target" placeholder="Hold stable. Two more weeks before stepping down.">
+      <div class="field-hint">Your current focus, shown under the band.</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">mg per pouch</label>
+      <input type="number" id="cfg-mg" min="1" max="20" step="0.5" inputmode="decimal">
+      <div class="field-hint">Used for total mg calculation.</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Quick step-down presets</label>
+      <div class="preset-row" id="presets"></div>
+      <div class="field-hint">Tap to load values — review before saving.</div>
+    </div>
+
+    <div id="bandHistory"></div>
+
+    <div class="modal-actions">
+      <button onclick="closeSettings()">cancel</button>
+      <button class="btn-save" onclick="saveSettings()">save</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">sustainability beats intensity</div>
+
+<script>
+  const STORAGE_KEY = 'taper_data_v1';
+
+  const DEFAULT_DATA = {
+    days: {},
+    config: {
+      floor: 8,
+      ceiling_normal: 11,
+      ceiling_max: 13,
+      ceiling_disruption: 12,
+      mg_per_pouch: 3,
+      band_label: '8–11',
+      week_target: 'Hold stable. Two more weeks before stepping down.'
+    },
+    band_history: []
+  };
+
+  // Step-down presets — the planned trajectory
+  const PRESETS = [
+    { label: '8–11 / 13', floor: 8, top: 11, ceil: 13, disruption: 12, target: 'Hold stable. Two more weeks before stepping down.' },
+    { label: '6–9 / 11', floor: 6, top: 9, ceil: 11, disruption: 10, target: 'New band. Hold two weeks before next step.' },
+    { label: '5–7 / 9', floor: 5, top: 7, ceil: 9, disruption: 8, target: 'Mid-taper. Watch for stress-driven creep.' },
+    { label: '4–6 / 7', floor: 4, top: 6, ceil: 7, disruption: 6, target: 'Approaching maintenance zone. Evaluate landing.' },
+    { label: '3 maint.', floor: 2, top: 3, ceil: 4, disruption: 4, target: '3-pouch maintenance trial. Hold for a month.' },
+    { label: '→ zero', floor: 0, top: 0, ceil: 2, disruption: 2, target: 'Final descent. Pouches are exceptions, not routine.' }
+  ];
+
+  let data = loadData();
+
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          days: parsed.days || {},
+          config: { ...DEFAULT_DATA.config, ...(parsed.config || {}) },
+          band_history: parsed.band_history || []
+        };
+      }
+    } catch (e) {
+      console.warn('Could not parse stored data, starting fresh');
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      showSaved();
+    } catch (e) {
+      console.error('Save failed:', e);
+    }
+  }
+
+  function showSaved() {
+    const el = document.getElementById('saveIndicator');
+    el.classList.add('show');
+    clearTimeout(showSaved._t);
+    showSaved._t = setTimeout(() => el.classList.remove('show'), 1200);
+  }
+
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function dateKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function timeLabel(iso) {
+    const d = new Date(iso);
+    let h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2,'0');
+    const am = h < 12 ? 'a' : 'p';
+    h = h % 12 || 12;
+    return h + ':' + m + am;
+  }
+
+  function gapMinutes(iso1, iso2) {
+    return Math.round((new Date(iso2) - new Date(iso1)) / 60000);
+  }
+
+  function gapLabel(mins) {
+    if (mins < 60) return mins + 'm';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m === 0 ? h + 'h' : h + 'h' + m + 'm';
+  }
+
+  function ensureToday() {
+    const k = todayKey();
+    if (!data.days[k]) {
+      data.days[k] = { count: 0, times: [], disruption: false, notes: '' };
+    }
+    return data.days[k];
+  }
+
+  function addPouch() {
+    const day = ensureToday();
+    day.count++;
+    day.times.push(new Date().toISOString());
+    saveData();
+    render(true);
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+
+  function subPouch() {
+    const day = ensureToday();
+    if (day.count > 0) {
+      day.count--;
+      if (day.times.length) day.times.pop();
+      saveData();
+      render();
+    }
+  }
+
+  function toggleDisruption() {
+    const day = ensureToday();
+    day.disruption = !day.disruption;
+    saveData();
+    render();
+  }
+
+  function updateNotes(val) {
+    const day = ensureToday();
+    day.notes = val;
+    saveData();
+  }
+
+  function exportData() {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'taper-backup-' + todayKey() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && parsed.days) {
+          if (confirm('Replace current data with imported backup?')) {
+            data = {
+              days: parsed.days || {},
+              config: { ...DEFAULT_DATA.config, ...(parsed.config || {}) },
+              band_history: parsed.band_history || []
+            };
+            saveData();
+            render();
+          }
+        }
+      } catch (err) {
+        alert('Could not read backup file');
+      }
+    };
+    input.click();
+  }
+
+  function openSettings() {
+    const cfg = data.config;
+    document.getElementById('cfg-label').value = cfg.band_label;
+    document.getElementById('cfg-floor').value = cfg.floor;
+    document.getElementById('cfg-ceiling-normal').value = cfg.ceiling_normal;
+    document.getElementById('cfg-ceiling-max').value = cfg.ceiling_max;
+    document.getElementById('cfg-ceiling-disruption').value = cfg.ceiling_disruption;
+    document.getElementById('cfg-target').value = cfg.week_target;
+    document.getElementById('cfg-mg').value = cfg.mg_per_pouch;
+
+    // Render presets
+    const presetsEl = document.getElementById('presets');
+    presetsEl.innerHTML = PRESETS.map((p, i) =>
+      `<button class="preset" onclick="applyPreset(${i})">${p.label}</button>`
+    ).join('');
+
+    // Render band history
+    const histEl = document.getElementById('bandHistory');
+    if (data.band_history && data.band_history.length) {
+      histEl.innerHTML = `
+        <div class="history-section-title">Band history</div>
+        ${data.band_history.slice().reverse().map(b => `
+          <div class="band-history-item">
+            <span class="band-history-band">${b.label}</span>
+            <span class="band-history-date">${new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          </div>
+        `).join('')}
+      `;
+    } else {
+      histEl.innerHTML = '';
+    }
+
+    document.getElementById('settingsModal').classList.add('open');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('open');
+  }
+
+  function applyPreset(i) {
+    const p = PRESETS[i];
+    document.getElementById('cfg-floor').value = p.floor;
+    document.getElementById('cfg-ceiling-normal').value = p.top;
+    document.getElementById('cfg-ceiling-max').value = p.ceil;
+    document.getElementById('cfg-ceiling-disruption').value = p.disruption;
+    document.getElementById('cfg-label').value = `${p.floor}–${p.top}`;
+    document.getElementById('cfg-target').value = p.target;
+  }
+
+  function saveSettings() {
+    const newCfg = {
+      band_label: document.getElementById('cfg-label').value.trim() || data.config.band_label,
+      floor: parseInt(document.getElementById('cfg-floor').value) || 0,
+      ceiling_normal: parseInt(document.getElementById('cfg-ceiling-normal').value) || 0,
+      ceiling_max: parseInt(document.getElementById('cfg-ceiling-max').value) || 0,
+      ceiling_disruption: parseInt(document.getElementById('cfg-ceiling-disruption').value) || 0,
+      week_target: document.getElementById('cfg-target').value.trim() || data.config.week_target,
+      mg_per_pouch: parseFloat(document.getElementById('cfg-mg').value) || 3
+    };
+
+    // Validate
+    if (newCfg.ceiling_normal < newCfg.floor) {
+      alert('Top of band must be at least the floor value.');
+      return;
+    }
+    if (newCfg.ceiling_max < newCfg.ceiling_normal) {
+      alert('Hard ceiling must be at least the top of band.');
+      return;
+    }
+
+    // Log band change to history if the band actually moved
+    const old = data.config;
+    const bandChanged = old.floor !== newCfg.floor || old.ceiling_normal !== newCfg.ceiling_normal || old.ceiling_max !== newCfg.ceiling_max;
+    if (bandChanged) {
+      if (!data.band_history) data.band_history = [];
+      data.band_history.push({
+        label: newCfg.band_label,
+        floor: newCfg.floor,
+        top: newCfg.ceiling_normal,
+        ceil: newCfg.ceiling_max,
+        date: new Date().toISOString()
+      });
+    }
+
+    data.config = newCfg;
+    saveData();
+    closeSettings();
+    render();
+  }
+
+  function getStats() {
+    const keys = Object.keys(data.days).sort().reverse();
+    const last7 = keys.slice(0, 7).map(k => data.days[k]);
+    const last10 = keys.slice(0, 10).map(k => data.days[k]).filter(d => d.count > 0);
+
+    let avg7 = '—';
+    let bestRecent = '—';
+    let streakInBand = 0;
+
+    if (last7.length) {
+      const counts = last7.filter(d => d.count > 0).map(d => d.count);
+      if (counts.length) {
+        avg7 = (counts.reduce((a,b)=>a+b,0) / counts.length).toFixed(1);
+      }
+    }
+    if (last10.length) {
+      bestRecent = Math.min(...last10.map(d => d.count));
+    }
+
+    for (const k of keys) {
+      const day = data.days[k];
+      if (day.count === 0) continue;
+      if (day.count <= data.config.ceiling_max) {
+        streakInBand++;
+      } else {
+        break;
+      }
+    }
+
+    return { avg7, bestRecent, streakInBand };
+  }
+
+  function statusForDay(day) {
+    if (day.count === 0) return { cls: '' };
+    const { ceiling_normal, ceiling_max } = data.config;
+    if (day.count <= ceiling_normal) return { cls: 'in-band' };
+    if (day.count <= ceiling_max) return { cls: 'over-band' };
+    return { cls: 'over-ceiling' };
+  }
+
+  function render(bump) {
+    const day = ensureToday();
+    const cfg = data.config;
+    const stats = getStats();
+
+    const ceilEff = day.disruption ? cfg.ceiling_disruption : cfg.ceiling_max;
+    const progress = Math.min(100, (day.count / cfg.ceiling_max) * 100);
+
+    let statusColor = 'var(--good)';
+    let statusBadgeCls = 'status-good';
+    let statusText = 'in band';
+    if (day.count === 0) {
+      statusColor = 'var(--dim)';
+      statusBadgeCls = 'status-dim';
+      statusText = 'untracked';
+    } else if (day.count > cfg.ceiling_max) {
+      statusColor = 'var(--bad)';
+      statusBadgeCls = 'status-bad';
+      statusText = 'ceiling breach';
+    } else if (day.count > cfg.ceiling_normal) {
+      statusColor = 'var(--warn)';
+      statusBadgeCls = 'status-warn';
+      statusText = day.disruption ? 'budgeted' : 'over band';
+    }
+
+    let timesHtml = '';
+    if (day.times.length) {
+      const sorted = [...day.times].sort();
+      const parts = [];
+      for (let i = 0; i < sorted.length; i++) {
+        const isRecent = i === sorted.length - 1;
+        parts.push(`<span class="chip ${isRecent ? 'recent' : ''}">${timeLabel(sorted[i])}</span>`);
+        if (i < sorted.length - 1) {
+          const gap = gapMinutes(sorted[i], sorted[i+1]);
+          const gapCls = gap < 60 ? 'gap-warn' : '';
+          parts.push(`<span class="chip-gap ${gapCls}">${gapLabel(gap)}</span>`);
+        }
+      }
+      timesHtml = `
+        <div class="times">
+          <div class="times-label">today's timing</div>
+          <div class="time-chips">${parts.join('')}</div>
+        </div>`;
+    }
+
+    const historyKeys = [];
+    for (let i = 20; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      historyKeys.push(dateKey(d));
+    }
+
+    const weeks = [];
+    for (let w = 0; w < 3; w++) {
+      const weekDays = historyKeys.slice(w*7, w*7+7);
+      const cells = weekDays.map(k => {
+        const dd = data.days[k];
+        const isToday = k === todayKey();
+        if (!dd || dd.count === 0) {
+          return `<div class="day ${isToday ? 'today-cell' : ''}"><span class="d-date">${k.slice(8)}</span><span class="d-num">·</span></div>`;
+        }
+        const s = statusForDay(dd);
+        return `<div class="day has-data ${s.cls} ${dd.disruption ? 'disruption' : ''} ${isToday ? 'today-cell' : ''}">
+          <span class="d-date">${k.slice(8)}</span>
+          <span class="d-num">${dd.count}</span>
+        </div>`;
+      }).join('');
+      weeks.push(`<div class="week">${cells}</div>`);
+    }
+
+    const todayDisplay = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric'
+    });
+
+    document.getElementById('app').innerHTML = `
+      <div class="today" style="--progress: ${progress}%; --status-color: ${statusColor};">
+        <div class="today-label">Today</div>
+        <div class="today-date">${todayDisplay}</div>
+        <div class="count-row">
+          <div class="count-num ${bump ? 'bump' : ''}">${day.count}</div>
+          <div class="count-ceiling">
+            ceiling
+            <span class="num">${ceilEff}</span>
+            ${day.count * cfg.mg_per_pouch}mg total
+          </div>
+        </div>
+        <span class="status-badge ${statusBadgeCls}">${statusText}</span>
+
+        <div class="actions">
+          <button class="btn-sub" onclick="subPouch()">− undo</button>
+          <button class="btn-add" onclick="addPouch()">+ log pouch</button>
+        </div>
+
+        <div class="disruption ${day.disruption ? 'active' : ''}" onclick="toggleDisruption()">
+          <label>Disruption day · ceiling ${cfg.ceiling_disruption}</label>
+          <div class="toggle"></div>
+        </div>
+
+        ${timesHtml}
+      </div>
+
+      <div class="band">
+        <div class="band-title">current band</div>
+        <div class="band-range">${cfg.band_label} <span style="color:var(--dim); font-size: 14px;">/ ceiling ${cfg.ceiling_max}</span></div>
+        <div class="band-sub">${cfg.week_target}</div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num">${stats.avg7}</div>
+          <div class="stat-label">7-day avg</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">${stats.bestRecent}</div>
+          <div class="stat-label">recent best</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">${stats.streakInBand}</div>
+          <div class="stat-label">days ≤ ceiling</div>
+        </div>
+      </div>
+
+      <div class="history">
+        <div class="history-title">last three weeks</div>
+        ${weeks.join('')}
+      </div>
+
+      <div class="notes-section">
+        <div class="notes-label">notes for today</div>
+        <textarea id="notes" placeholder="trigger, stress level, what worked..." oninput="updateNotes(this.value)">${day.notes || ''}</textarea>
+      </div>
+
+      <div class="data-tools">
+        <button onclick="exportData()">export backup</button>
+        <button onclick="importData()">restore</button>
+      </div>
+    `;
+  }
+
+  render();
+
+  // Re-render at midnight so "today" rolls over if app is left open
+  function scheduleMidnightRefresh() {
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    setTimeout(() => { render(); scheduleMidnightRefresh(); }, tomorrow - now);
+  }
+  scheduleMidnightRefresh();
+</script>
+
+</body>
+</html>
